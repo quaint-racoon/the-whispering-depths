@@ -33,7 +33,9 @@ let player = {
 };
 let exitLadder;
 let camera = { x: 0, y: 0, targetX: 0, targetY: 0 };
-let keys = {};
+let keys = {
+    mouse: { left: false, right: false }
+};
 // Game entities
 let chests = [];
 let mobs = [];
@@ -42,16 +44,29 @@ let particles = [];
 let game;
 let gameTime = 0;
 let messages = [];
+let frames=0;
+let fps;
 const spawn = {};
 const MESSAGE_TIMEOUT_MS = 5000;
 const input = document.getElementById('chatInput'); 
 // --- UTILITY FUNCTIONS ---
-
+function calculateFps(){
+    frames++
+    ctx.fillStyle = 'white';
+    ctx.fillText(fps, canvas.width-25, 15);
+    if(frames===60){
+    const deltaTime = new Date() - lastTime;
+    lastTime = new Date();
+    fps = Math.round(frames*1000/deltaTime)
+    frames=0
+    }
+    
+}
 // Function to check if a tile is a wall
 function isWall(tileX, tileY) {
     // Check bounds first to prevent errors
     if (tileX < 0 || tileX >= MAP_WIDTH || tileY < 0 || tileY >= MAP_HEIGHT) {
-        return true; // Treat out-of-bounds as a wall
+        return true; 
     }
     return map[tileY][tileX] !== TILE_FLOOR;
 }
@@ -115,36 +130,33 @@ function createParticle(x, y, color, text = '') {
 // --- VISIBILITY SYSTEM (FIXED) ---
 
 function castRay(x0, y0, x1, y1) {
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
-    let x = x0;
-    let y = y0;
+    // Calculate direction
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const distance = Math.sqrt(dx * dx + dy * dy);
     
-    while (true) {
+    // Normalize direction
+    const stepX = dx / distance;
+    const stepY = dy / distance;
+    
+    // Step along the ray
+    const steps = Math.ceil(distance);
+    for (let i = 0; i <= steps; i++) {
+        const x = Math.floor(x0 + stepX * i);
+        const y = Math.floor(y0 + stepY * i);
+        
+        // Check bounds
+        if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) {
+            return;
+        }
+        
         // Mark as visible
-        if (x >= 0 && x < MAP_WIDTH && y >= 0 && y < MAP_HEIGHT) {
-            visibilityMap[y][x] = true;
-            exploredMap[y][x] = true;
-            
-            // Stop at walls (but still mark the wall as visible)
-            if (map[y][x] === TILE_WALL) {
-                return;
-            }
-        }
+        visibilityMap[y][x] = true;
+        exploredMap[y][x] = true;
         
-        if (x === x1 && y === y1) break;
-        
-        const e2 = 2 * err;
-        if (e2 > -dy) {
-            err -= dy;
-            x += sx;
-        }
-        if (e2 < dx) {
-            err += dx;
-            y += sy;
+        // Stop at walls
+        if (map[y][x] === TILE_WALL) {
+            return;
         }
     }
 }
@@ -157,19 +169,104 @@ function updateVisibility() {
         }
     }
     
-    const px = Math.floor(player.x);
-    const py = Math.floor(player.y);
+    // Use actual player position (with decimals)
+    const px = player.x;
+    const py = player.y;
     
     // Cast rays in a circle
-    const numRays = 72;
+    const numRays = 720;
     for (let i = 0; i < numRays; i++) {
         const angle = (i / numRays) * Math.PI * 2;
-        const endX = Math.floor(px + Math.cos(angle) * VISION_RANGE);
-        const endY = Math.floor(py + Math.sin(angle) * VISION_RANGE);
+        const endX = px + Math.cos(angle) * VISION_RANGE;
+        const endY = py + Math.sin(angle) * VISION_RANGE;
         castRay(px, py, endX, endY);
     }
 }
+// --- CANVAS RECORDING SCRIPT (NO UI) ---
 
+// The duration of the recording (5 seconds)
+const RECORD_DURATION_MS = 5000; 
+let mediaRecorder;
+let recordedChunks = [];
+let isRecording = false;
+
+// Note: This script assumes 'canvas' is a globally defined reference to the HTML canvas element.
+
+/**
+ * Starts recording the canvas stream for a fixed duration.
+ */
+function startRecording() {
+    // Check if the canvas element is available
+    if (typeof canvas === 'undefined' || !canvas.captureStream) {
+        addMessage("[Recorder Error] Canvas element or captureStream API not found. Recording aborted.");
+        return;
+    }
+
+    // Prevent starting a new recording if one is already in progress
+    if (isRecording) {
+        addMessage("[Recorder] Recording is already in progress. Waiting for timeout.");
+        return;
+    }
+
+    // 1. Get the stream from the canvas element
+    const stream = canvas.captureStream(60); // Captures at 60 frames per second
+    
+    // 2. Create the MediaRecorder instance
+    // Note: 'video/webm; codecs=vp8' offers high compatibility
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8' });
+    recordedChunks = [];
+    isRecording = true;
+    addMessage(`[Recorder] Starting recording. Duration: ${RECORD_DURATION_MS / 1000} seconds.`);
+
+    // 3. Event listener: Collect data when available
+    mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+        }
+    };
+
+    // 4. Event listener: Process and download the video when recording stops
+    mediaRecorder.onstop = () => {
+        isRecording = false;
+        addMessage("[Recorder] Recording stopped. Processing video...");
+
+        // Create a Blob from the collected chunks
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        
+        // Trigger automatic download
+        const a = document.createElement('a');
+        document.body.appendChild(a);
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `gameplay_recording_${new Date().toISOString()}.webm`;
+        a.click();
+        
+        // Cleanup and log completion
+        window.URL.revokeObjectURL(url);
+        addMessage(`[Recorder] Recording complete! File saved as ${a.download}`);
+    };
+
+    // 5. Start recording
+    mediaRecorder.start();
+    
+    // 6. Set timeout to stop recording after 5 seconds
+    setTimeout(() => {
+        if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    }, RECORD_DURATION_MS);
+}
+
+// --- EVENT LISTENERS (Keypress only, no button/UI) ---
+
+// Keypress 'o' listener
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'o' || e.key === 'O') {
+        e.preventDefault();
+        startRecording();
+    }
+});
 // --- DUNGEON GENERATION ---
 
 function initializeMap() {
@@ -309,23 +406,25 @@ function generateDungeon() {
 
 async function handleCombat() {
     // Player attack
-    if (keys[' '] && player.attackCooldown <= 0) {
+    if (keys.mouse.left && player.attackCooldown <= 0) {
         player.attackCooldown = 30;
         
         // Check for nearby mobs
-        const px = Math.floor(player.x);
-        const py = Math.floor(player.y);
-        
+
+        player.attackAngle = Math.atan2(keys.mouse.y + camera.y-player.y*TILE_SIZE , keys.mouse.x + camera.x-player.x*TILE_SIZE);
         for (let mob of mobs) {
-            const mx = Math.floor(mob.x);
-            const my = Math.floor(mob.y);
-            
-            if (dist(px, py, mx, my) < 2) {
+            if (mob.health <= 0) continue;
+            if(dist(player.x, player.y, mob.x, mob.y) > 3 ) continue 
+            const mobAngle = Math.atan2(mob.y-player.y, mob.x - player.x);
+            const angleDiff = Math.abs(player.attackAngle - mobAngle);
+            const normalizedAngleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
+            if ( Math.abs(normalizedAngleDiff) <= Math.PI / 6) {
+                
                 mob.health -= player.damage;
                 mob.stunned = 15; // Knockback stun
                 
                 // Knockback
-                const angle = Math.atan2(my - py, mx - px);
+                const angle = Math.atan2(mob.y - player.y, mob.x - player.x);
                 mob.x += Math.cos(angle) * 0.5;
                 mob.y += Math.sin(angle) * 0.5;
                 
@@ -559,7 +658,6 @@ function update() {
 
 function draw() {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
     const offsetX = -camera.x;
     const offsetY = -camera.y;
 
@@ -595,7 +693,19 @@ function draw() {
 
 
 
-
+    // let rays=72
+    // ctx.strokeStyle = 'rgba(255, 0, 0, 0.1)';
+    // const px = Math.floor(player.x)
+    // const py = Math.floor(player.y)
+    // for(let i=0; i < rays; i++){
+    //     const angle = (i / rays) * Math.PI * 2;
+    //     const endX = Math.floor(px + Math.cos(angle) * VISION_RANGE);
+    //     const endY = Math.floor(py + Math.sin(angle) * VISION_RANGE);
+    //     ctx.beginPath();
+    //     ctx.moveTo(px * TILE_SIZE + offsetX, py * TILE_SIZE + offsetY);
+    //     ctx.lineTo(endX * TILE_SIZE + offsetX, endY * TILE_SIZE + offsetY);
+    //     ctx.stroke();
+    // }
 
     
     // Draw chests
@@ -695,7 +805,7 @@ function draw() {
     );
     ctx.fill();
     // Draw attack indicator
-    if (player.attackCooldown > 25) {
+    if (player.attackCooldown > 20) {
         ctx.strokeStyle = 'rgba(252, 163, 17, 0.5)';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -703,7 +813,8 @@ function draw() {
             player.x * TILE_SIZE + offsetX ,
             player.y * TILE_SIZE + offsetY ,
             TILE_SIZE * 2,
-            0, Math.PI * 2
+            player.attackAngle-Math.PI / 6,
+            player.attackAngle+Math.PI / 6
         );
         ctx.stroke();
     }
@@ -731,11 +842,13 @@ function draw() {
     ctx.globalAlpha = 1;
     drawMessageLog(ctx, CANVAS_HEIGHT);
 }
+let lastTime = new Date();
 
 function gameLoop() {
     game=requestAnimationFrame(gameLoop);
     update();
     draw();
+    calculateFps()
 }
 
 // --- INPUT HANDLING ---
@@ -756,7 +869,32 @@ function handleKeyUp(e) {
     keys[e.key] = false;
     updatePlayerMovement();
 }
-
+function handleMouseDown(e) {
+    if(e.target !== canvas) return;
+    keys.mouse.x = e.offsetX;
+    keys.mouse.y = e.offsetY;
+    switch (e.button) {
+        case 0: // Left click
+            keys.mouse.left = true;
+            break;
+        case 2: // Right click
+            keys.mouse.right = true;
+            break;
+    }
+}
+function handleMouseUp(e) {
+    if(e.target !== canvas) return;
+    keys.mouse.x = e.offsetX;
+    keys.mouse.y = e.offsetY;
+    switch (e.button) {
+        case 0: // Left click
+            keys.mouse.left = false;
+            break;  
+        case 2: // Right click
+            keys.mouse.right = false;
+            break;
+    }
+}
 function updatePlayerMovement() {
     let dx = 0;
     let dy = 0;
@@ -782,6 +920,7 @@ addEventListener('keydown', function(event) {
     }
 })
 // Assuming 'input' is the text input field
+
 input.addEventListener('keydown', function(event) {
     // Only proceed if the 'Enter' key was pressed
     if (event.key === 'Enter') {
@@ -843,7 +982,8 @@ function init() {
 
     addEventListener('keydown', handleKeyDown);
     addEventListener('keyup', handleKeyUp);
-    
+    addEventListener('mousedown', handleMouseDown);
+    addEventListener('mouseup', handleMouseUp);
     addMessage('Welcome to the Whispering Depths!', '#fbbf24');
     addMessage('Press Q to use potions', '#10b981');
 
