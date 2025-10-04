@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dungeon Crawler - Enhanced</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
     <style>
         body {
             user-select: none;
@@ -59,7 +62,21 @@
             background: linear-gradient(90deg, #dc2626, #ef4444);
             transition: width 0.3s ease;
         }
+        .mana-bar {
+            width: 150px;
+            height: 20px;
+            background: #1e293b;
+            border: 2px solid #3b82f6;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
 
+        .mana-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #38bdf8);
+            transition: width 0.3s ease;
+        }
         .inventory {
             margin-top: 10px;
             display: flex;
@@ -79,13 +96,53 @@
         }
 
         @keyframes fadeIn {
-            to { opacity: 1; }
+            to {
+                opacity: 1;
+            }
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #101524;
+            /* Very dark background to mimic game viewport */
+            min-height: 100vh;
+            color: #e2e8f0;
+            /* Light text color */
+        }
+
+        /* Custom scrollbar matching the new accent color */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #0ea5e9;
+            /* Sky blue scrollbar */
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: #1f2937;
+        }
+
+        .upgrade-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .upgrade-card:hover {
+            transform: translateY(-2px);
+            /* Subtle lift on hover */
+            /* Subtle sky blue glow on hover */
+            box-shadow: 0 5px 10px -3px rgba(14, 165, 233, 0.4), 0 2px 4px -2px rgba(14, 165, 233, 0.2);
         }
     </style>
+    <script src="shop.js" defer></script>
+
     <script src="main.js" defer></script>
 </head>
+
 <body>
-        
+
     <div class="mb-4 text-center">
         <h1 class="text-3xl font-bold text-gray-100">The Whispering Depths</h1>
         <p class="text-sm text-gray-400 mt-1">WASD/Arrows to move • E to interact • click to attack</p>
@@ -94,21 +151,182 @@
 
     <div id="gameContainer">
         <canvas id="gameCanvas"></canvas>
-        <input id="chatInput" style="display:none;" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Type a message..." class="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-3/4 p-2 bg-gray-800 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400" />
+        <input id="chatInput" style="display:none;" autocomplete="off" autocapitalize="off" spellcheck="false"
+            placeholder="Type a message..."
+            class="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-3/4 p-2 bg-gray-800 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400" />
         <div id="ui">
-            <div>HP: <span id="health">100</span>/100</div>
             <div class="health-bar">
+                <span style=" justify-self: anchor-center;" id="health"
+                    class="absolute align-self-center">100/100</span>
                 <div class="health-fill" id="healthBar" style="width: 100%"></div>
             </div>
+            <div class="mana-bar">
+                <span style ="justify-self: anchor-center;"  id="mana"
+                    class="absolute align-self-center">50/50</span>
+                <div class="mana-fill" id="manaBar" style="width: 100%"></div>
+            </div>
             <div class="inventory" id="inventory">
-                <div class="inventory-slot">⚔️</div>
+                <div class="inventory-slot" id="exp">⚔️</div>
                 <div class="inventory-slot" id="potions">🧪</div>
                 <div class="inventory-slot" id="gold">💰</div>
             </div>
         </div>
-        
+        <div class="custom-scrollbar overflow-y-auto hidden" id="shop-ui">
+
+            <!-- START: Single Main Container (The entire Shop UI area) -->
+            <div id="shop-ui-wrapper" class="w-full h-full">
+
+                <!-- Modal Overlay and Centering (Now has ID for easy hiding) -->
+                <div id="shop-modal-container" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+
+                    <!-- Main Shop Container (The Modal Itself) -->
+                    <div id="app"
+                        class="w-full max-w-4xl max-h-[90vh] bg-gray-900/95 border border-sky-600/50 rounded-xl p-4 sm:p-6 shadow-2xl custom-scrollbar overflow-y-auto">
+
+                        <!-- Header and Currency Display -->
+                        <header
+                            class="flex flex-col sm:flex-row justify-between items-center mb-6 p-4 bg-gray-800 rounded-lg shadow-inner border-b border-sky-700/50">
+                            <h1 class="text-3xl font-extrabold text-sky-400 mb-3 sm:mb-0">
+                                The Whisper Shop
+                            </h1>
+                            <div
+                                class="flex items-center space-x-3 bg-sky-900/30 px-5 py-2 rounded-full border border-sky-700">
+                                <i data-lucide="badge-dollar-sign" class="w-6 h-6 text-yellow-300"></i>
+                                <span id="currency-display" class="text-xl font-bold text-yellow-300 tracking-wider">
+                                    <!-- Populated by JS from player.gold -->
+                                    <span id="current-gems">loading...</span> Gold
+                                </span>
+                            </div>
+                        </header>
+
+                        <!-- Upgrade Grid (2x3 Layout for compactness) -->
+                        <div id="upgrade-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                            <!-- Health Upgrade Card (Static HTML Structure) -->
+                            <div data-stat-key="health"
+                                class="upgrade-card bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700/50 flex flex-col justify-between">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="p-1.5 bg-red-600 rounded-full">
+                                        <i data-lucide="heart" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-gray-200">Health</h2>
+                                </div>
+                                <p class="text-gray-400 text-xs mb-3 h-8">Increases maximum vitality points.</p>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="stat-bar text-2xl tracking-widest"></span>
+                                    <span class="stat-level text-sm font-semibold text-sky-400"></span>
+                                </div>
+                                <button onclick="upgrade('health')"
+                                    class="stat-button w-full font-semibold py-2 rounded-md transition duration-200 flex items-center justify-center text-sm"></button>
+                            </div>
+
+                            <!-- Mana Upgrade Card (Static HTML Structure) -->
+                            <div data-stat-key="mana"
+                                class="upgrade-card bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700/50 flex flex-col justify-between">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="p-1.5 bg-blue-600 rounded-full">
+                                        <i data-lucide="droplet" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-gray-200">Mana</h2>
+                                </div>
+                                <p class="text-gray-400 text-xs mb-3 h-8">Increases mana capacity for skills.</p>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="stat-bar text-2xl tracking-widest"></span>
+                                    <span class="stat-level text-sm font-semibold text-sky-400"></span>
+                                </div>
+                                <button onclick="upgrade('mana')"
+                                    class="stat-button w-full font-semibold py-2 rounded-md transition duration-200 flex items-center justify-center text-sm"></button>
+                            </div>
+
+                            <!-- Speed Upgrade Card (Static HTML Structure) -->
+                            <div data-stat-key="speed"
+                                class="upgrade-card bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700/50 flex flex-col justify-between">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="p-1.5 bg-green-600 rounded-full">
+                                        <i data-lucide="feather" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-gray-200">Speed</h2>
+                                </div>
+                                <p class="text-gray-400 text-xs mb-3 h-8">Boosts player movement speed.</p>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="stat-bar text-2xl tracking-widest"></span>
+                                    <span class="stat-level text-sm font-semibold text-sky-400"></span>
+                                </div>
+                                <button onclick="upgrade('speed')"
+                                    class="stat-button w-full font-semibold py-2 rounded-md transition duration-200 flex items-center justify-center text-sm"></button>
+                            </div>
+
+                            <!-- Regeneration Upgrade Card (Static HTML Structure) -->
+                            <div data-stat-key="regeneration"
+                                class="upgrade-card bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700/50 flex flex-col justify-between">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="p-1.5 bg-pink-600 rounded-full">
+                                        <i data-lucide="repeat" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-gray-200">Regeneration</h2>
+                                </div>
+                                <p class="text-gray-400 text-xs mb-3 h-8">Enhances passive recovery rate.</p>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="stat-bar text-2xl tracking-widest"></span>
+                                    <span class="stat-level text-sm font-semibold text-sky-400"></span>
+                                </div>
+                                <button onclick="upgrade('regeneration')"
+                                    class="stat-button w-full font-semibold py-2 rounded-md transition duration-200 flex items-center justify-center text-sm"></button>
+                            </div>
+
+                            <!-- Luck Upgrade Card (Static HTML Structure) -->
+                            <div data-stat-key="luck"
+                                class="upgrade-card bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700/50 flex flex-col justify-between">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="p-1.5 bg-yellow-600 rounded-full">
+                                        <i data-lucide="sparkles" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-gray-200">Luck</h2>
+                                </div>
+                                <p class="text-gray-400 text-xs mb-3 h-8">Improves critical chance and drop rates.</p>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="stat-bar text-2xl tracking-widest"></span>
+                                    <span class="stat-level text-sm font-semibold text-sky-400"></span>
+                                </div>
+                                <button onclick="upgrade('luck')"
+                                    class="stat-button w-full font-semibold py-2 rounded-md transition duration-200 flex items-center justify-center text-sm"></button>
+                            </div>
+
+                            <!-- Damage Upgrade Card (Static HTML Structure) -->
+                            <div data-stat-key="damage"
+                                class="upgrade-card bg-gray-800 rounded-lg p-4 shadow-lg border border-gray-700/50 flex flex-col justify-between">
+                                <div class="flex items-center space-x-3 mb-2">
+                                    <div class="p-1.5 bg-orange-600 rounded-full">
+                                        <i data-lucide="sword" class="w-5 h-5 text-white"></i>
+                                    </div>
+                                    <h2 class="text-xl font-bold text-gray-200">Damage</h2>
+                                </div>
+                                <p class="text-gray-400 text-xs mb-3 h-8">Increases base attack damage output.</p>
+                                <div class="flex justify-between items-center mb-3">
+                                    <span class="stat-bar text-2xl tracking-widest"></span>
+                                    <span class="stat-level text-sm font-semibold text-sky-400"></span>
+                                </div>
+                                <button onclick="upgrade('damage')"
+                                    class="stat-button w-full font-semibold py-2 rounded-md transition duration-200 flex items-center justify-center text-sm"></button>
+                            </div>
+                        </div>
+
+                        <!-- Close Button for the Modal -->
+                        <div class="flex justify-center mt-6">
+                            <button onclick="document.getElementById('shop-ui').classList.add('hidden')"
+                                class="text-sky-400 hover:text-sky-300 text-lg font-semibold py-2 px-6 rounded-full transition duration-200">
+                                Close Shop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END: Single Main Container -->
+        </div>
+
     </div>
 
 
 </body>
+
 </html>

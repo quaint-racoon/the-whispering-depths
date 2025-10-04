@@ -4,10 +4,9 @@ const CANVAS_HEIGHT = 600;
 const TILE_SIZE = 12;
 const MAP_WIDTH = 100;
 const MAP_HEIGHT = 100;
-const MOVEMENT_SPEED = 0.15;
 const VISION_RANGE = 8;
 const CAMERA_LAG_FACTOR = 0.12;
-
+const STACK_MAX = 16;
 // Tile types
 const TILE_FLOOR = 0;
 const TILE_WALL = 1;
@@ -22,15 +21,38 @@ let player = {
     x: 0, 
     y: 0, 
     dx: 0, 
-    dy: 0, 
+    dy: 0,
+    speed:0.15,
     health: 100, 
     maxHealth: 100,
     damage: 10,
     potions: 0,
     gold: 0,
+    mana:50,
+    maxMana:50,
     attackCooldown: 0,
     color: '#3b82f6',
     size: TILE_SIZE * 0.4,
+    inventory:{},
+    points:0,
+    upgrades:{
+        price:5,
+        health:0,
+        luck:0,
+        speed:0,
+        damage:0,
+        regeneration:0,
+        mana:0,
+        maxLevel:4,
+    },
+    metadata: {
+        'health': { color: 'red', icon: 'heart' },
+        'mana': { color: 'blue', icon: 'droplet' },
+        'speed': { color: 'green', icon: 'feather' },
+        'regeneration': { color: 'pink', icon: 'repeat' },
+        'luck': { color: 'yellow', icon: 'sparkles' },
+        'damage': { color: 'orange', icon: 'sword' }
+    }
 };
 let exitLadder;
 let camera = { x: 0, y: 0, targetX: 0, targetY: 0 };
@@ -50,10 +72,11 @@ let fps;
 const spawn = {};
 const MESSAGE_TIMEOUT_MS = 5000;
 const input = document.getElementById('chatInput'); 
+const shopUi = document.getElementById('shop-ui')
 
 class spriteSheet {
     constructor(image, columns, rows) {
-        this.image = image; // HTMLImageElement
+        this.image = image; 
         this.frameWidth = image.width/columns;
         this.frameHeight = image.height/columns;
         this.columns = columns;
@@ -65,7 +88,7 @@ class spriteSheet {
         const row = Math.floor(frameIndex / this.columns);
         ctx.save();
         ctx.translate(x , y );
-        ctx.rotate(rotation);  // rotation should already be in radians
+        ctx.rotate(rotation);  
         ctx.drawImage(
             this.image,
             col * this.frameWidth,
@@ -74,15 +97,16 @@ class spriteSheet {
             this.frameHeight,
             -this.frameWidth * scale / 2,
             -this.frameHeight * scale / 2,
-            this.frameWidth * scale,  // ✅ Fixed
-            this.frameHeight * scale  // ✅ Fixed
+            this.frameWidth * scale,  
+            this.frameHeight * scale  
         );
         ctx.restore();
     }
 }
 
-// You need to define a loadImage function and use 'new' to create a spriteSheet instance.
-// Example loadImage function:
+
+
+
 function loadImage(url) {
     return new Promise((resolve, reject) => {
         const image = new Image();
@@ -157,8 +181,10 @@ function displayText(text) {
 }
 
 function updateUI() {
-    document.getElementById('health').textContent = Math.max(0, Math.floor(player.health));
+    document.getElementById('health').textContent = Math.max(0, Math.floor(player.health))+"/"+player.maxHealth;
     document.getElementById('healthBar').style.width = (player.health / player.maxHealth * 100) + '%';
+    document.getElementById('mana').textContent = Math.max(0, Math.floor(player.mana)) + "/" + player.maxMana;
+    document.getElementById('manaBar').style.width = (player.mana / player.maxMana * 100) + '%';
     document.getElementById('potions').textContent = '🧪' + (player.potions > 0 ? player.potions : '');
     document.getElementById('gold').textContent = '💰' + (player.gold > 0 ? player.gold : '');
 }
@@ -371,10 +397,10 @@ function carveCorridor(x1, y1, x2, y2) {
         }
     }
     // Place a door at the start and end of the corridor
-    map[y1][x1] = TILE_DOOR;
-    map[y1][x2] = TILE_DOOR;
-    map[y2][x2] = TILE_DOOR;
-    map[y2][x1] = TILE_DOOR;
+    // map[y1][x1] = TILE_DOOR;
+    // map[y1][x2] = TILE_DOOR;
+    // map[y2][x2] = TILE_DOOR;
+    // map[y2][x1] = TILE_DOOR;
 }
 
 function generateDungeon() {
@@ -531,6 +557,7 @@ async function handleCombat() {
                 // Reset game
                 setTimeout(() => {
                     player.health = player.maxHealth;
+                    player.mana = player.maxMana
                     player.x= spawn.x;
                     player.y= spawn.y;
                     updateUI();
@@ -662,8 +689,8 @@ function usePotion() {
 function update() {
     gameTime++;
     // Player movement with center-based bounding box collision
-    const nextX = player.x + player.dx * MOVEMENT_SPEED;
-    const nextY = player.y + player.dy * MOVEMENT_SPEED;
+    const nextX = player.x + player.dx * player.speed;
+    const nextY = player.y + player.dy * player.speed;
     const playerRadius = player.size / TILE_SIZE;
     let canMove = true;
     // Check four corners of the player's bounding box
@@ -1063,4 +1090,7 @@ function init() {
     gameLoop();
 }
 
-window.onload = init;
+window.onload = ()=>{
+    init();
+    renderShop();
+};
