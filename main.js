@@ -11,6 +11,7 @@ const CAMERA_LAG_FACTOR = 0.12;
 // Tile types
 const TILE_FLOOR = 0;
 const TILE_WALL = 1;
+const TILE_DOOR = 2;
 
 // --- GAME STATE ---
 let canvas, ctx;
@@ -49,6 +50,54 @@ let fps;
 const spawn = {};
 const MESSAGE_TIMEOUT_MS = 5000;
 const input = document.getElementById('chatInput'); 
+
+class spriteSheet {
+    constructor(image, columns, rows) {
+        this.image = image; // HTMLImageElement
+        this.frameWidth = image.width/columns;
+        this.frameHeight = image.height/columns;
+        this.columns = columns;
+        this.rows = rows;
+    }
+
+    drawFrame(frameIndex, x, y, rotation = 0, scale = 1) {
+        const col = frameIndex % this.columns;
+        const row = Math.floor(frameIndex / this.columns);
+        ctx.save();
+        ctx.translate(x , y );
+        ctx.rotate(rotation);  // rotation should already be in radians
+        ctx.drawImage(
+            this.image,
+            col * this.frameWidth,
+            row * this.frameHeight,
+            this.frameWidth,
+            this.frameHeight,
+            -this.frameWidth * scale / 2,
+            -this.frameHeight * scale / 2,
+            this.frameWidth * scale,  // ✅ Fixed
+            this.frameHeight * scale  // ✅ Fixed
+        );
+        ctx.restore();
+    }
+}
+
+// You need to define a loadImage function and use 'new' to create a spriteSheet instance.
+// Example loadImage function:
+function loadImage(url) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error(`Failed to load image at ${url}`));
+        image.src = url;
+    });
+}
+
+let slash;
+// Create the spriteSheet instance correctly:
+loadImage('slash.png').then((slashImage)=>{
+    slash = new spriteSheet(slashImage, 5, 5);
+})
+
 // --- UTILITY FUNCTIONS ---
 function calculateFps(){
     frames++
@@ -308,6 +357,7 @@ function carveCorridor(x1, y1, x2, y2) {
         }
     }
 
+
     // Carve the vertical corridor segment (2 blocks wide)
     const startY = Math.min(y1, y2);
     const endY = Math.max(y1, y2);
@@ -320,6 +370,11 @@ function carveCorridor(x1, y1, x2, y2) {
             map[y][x2 + 1] = TILE_FLOOR;
         }
     }
+    // Place a door at the start and end of the corridor
+    map[y1][x1] = TILE_DOOR;
+    map[y1][x2] = TILE_DOOR;
+    map[y2][x2] = TILE_DOOR;
+    map[y2][x1] = TILE_DOOR;
 }
 
 function generateDungeon() {
@@ -418,7 +473,7 @@ async function handleCombat() {
             const mobAngle = Math.atan2(mob.y-player.y, mob.x - player.x);
             const angleDiff = Math.abs(player.attackAngle - mobAngle);
             const normalizedAngleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
-            if ( Math.abs(normalizedAngleDiff) <= Math.PI / 6) {
+            if ( Math.abs(normalizedAngleDiff) <= Math.PI / 4) {
                 
                 mob.health -= player.damage;
                 mob.stunned = 15; // Knockback stun
@@ -678,13 +733,37 @@ function draw() {
 
             let color;
             if (visibilityMap[y][x]) {
-                // Currently visible
-                color = tile === TILE_WALL ? '#6b7280' : '#374151';
+            // Currently visible
+            switch (tile) {
+                case TILE_WALL:
+                color = '#6b7280';
+                break;
+                case TILE_FLOOR:
+                color = '#374151';
+                break;
+                case TILE_DOOR:
+                color = '#dc2626'; // Red for doors
+                break;
+                default:
+                color = '#374151';
+            }
             } else if (exploredMap[y][x]) {
-                // Previously explored
-                color = tile === TILE_WALL ? '#111827' : '#1f2937';
+            // Previously explored
+            switch (tile) {
+                case TILE_WALL:
+                color = '#111827';
+                break;
+                case TILE_FLOOR:
+                color = '#1f2937';
+                break;
+                case TILE_DOOR:
+                color = '#7f1d1d'; // Dark red for explored doors
+                break;
+                default:
+                color = '#1f2937';
+            }
             } else {
-                continue;
+            continue;
             }
             ctx.fillStyle = color;
             ctx.fillRect(x * TILE_SIZE + offsetX, y * TILE_SIZE + offsetY, TILE_SIZE, TILE_SIZE);
@@ -693,10 +772,10 @@ function draw() {
 
 
 
-    // let rays=72
+    // let rays=7200
     // ctx.strokeStyle = 'rgba(255, 0, 0, 0.1)';
-    // const px = Math.floor(player.x)
-    // const py = Math.floor(player.y)
+    // const px = player.x
+    // const py = player.y
     // for(let i=0; i < rays; i++){
     //     const angle = (i / rays) * Math.PI * 2;
     //     const endX = Math.floor(px + Math.cos(angle) * VISION_RANGE);
@@ -805,18 +884,10 @@ function draw() {
     );
     ctx.fill();
     // Draw attack indicator
-    if (player.attackCooldown > 20) {
-        ctx.strokeStyle = 'rgba(252, 163, 17, 0.5)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(
-            player.x * TILE_SIZE + offsetX ,
-            player.y * TILE_SIZE + offsetY ,
-            TILE_SIZE * 2,
-            player.attackAngle-Math.PI / 6,
-            player.attackAngle+Math.PI / 6
-        );
-        ctx.stroke();
+    if (player.attackCooldown > 0) {
+        let x = Math.cos(player.attackAngle)*TILE_SIZE*1.5
+        let y = Math.sin(player.attackAngle)*TILE_SIZE*1.5
+        slash.drawFrame(29-player.attackCooldown,player.x*TILE_SIZE-camera.x + x,player.y*TILE_SIZE-camera.y+y,player.attackAngle+Math.PI/2,0.5)
     }
     
     // Draw particles
