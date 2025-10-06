@@ -1,6 +1,6 @@
 // --- CORE CONFIGURATION ---
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
+let CANVAS_WIDTH = 800;
+let CANVAS_HEIGHT = 600;
 const TILE_SIZE = 12;
 const MAP_WIDTH = 100;
 const MAP_HEIGHT = 100;
@@ -163,6 +163,22 @@ function getLoot(lootTable) {
 
     return "Error: Could not determine loot";
 }
+
+
+function isMobileUserAgent() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+  
+    // Check for common mobile OS/device keywords (case-insensitive)
+    if (
+      /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+        userAgent
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+  
 
 
 function calculateFps(){
@@ -540,8 +556,8 @@ async function handleCombat() {
         player.attackCooldown = 30;
         
         // Check for nearby mobs
-
-        player.attackAngle = Math.atan2(keys.mouse.y + camera.y-player.y*TILE_SIZE , keys.mouse.x + camera.x-player.x*TILE_SIZE);
+        
+        if(!isMobileUserAgent()) player.attackAngle = Math.atan2(keys.mouse.y + camera.y-player.y*TILE_SIZE , keys.mouse.x + camera.x-player.x*TILE_SIZE);
         for (let mob of mobs) {
             if (mob.health <= 0) continue;
             if(dist(player.x, player.y, mob.x, mob.y) > 3 ) continue 
@@ -1163,8 +1179,10 @@ function init() {
     addEventListener('keyup', handleKeyUp);
     addEventListener('mousedown', handleMouseDown);
     addEventListener('mouseup', handleMouseUp);
+
     addMessage('Welcome to the Whispering Depths!', '#fbbf24');
     addMessage('Press Q to use potions', '#10b981');
+
 
     updateUI();
     
@@ -1176,4 +1194,26 @@ window.onload = async ()=>{
     init();
     renderShop();
     shopimg = await loadImage('shop.png')
+
+    if(isMobileUserAgent()){
+        document.getElementById("gametitle").classList.add("hidden")
+        document.getElementById("joystick-container").style.display="flex"
+        document.body.classList.add("flex-row","justify-around")
+        document.getElementById("interact-buttons").classList.remove("hidden")
+        let newsizenow;
+        if(window.innerWidth>window.innerHeight){
+            newsizenow = window.innerHeight-8
+        }else{
+            newsizenow = window.innerWidth-8
+        }
+        canvas.height = newsizenow
+        canvas.width = newsizenow
+        CANVAS_HEIGHT = newsizenow
+        CANVAS_WIDTH = newsizenow
+    }
+
+    containerRect = container.getBoundingClientRect();
+    centerX = containerRect.left + containerRect.width / 2;
+    centerY = containerRect.top + containerRect.height / 2;
+
 };
