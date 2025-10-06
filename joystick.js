@@ -1,11 +1,10 @@
 const container = document.getElementById('joystick-container');
 const handle = document.getElementById('joystick-handle');
-let containerRect,centerX,centerY;
+let containerRect,centerX,centerY,maxRadius;
 containerRect = container.getBoundingClientRect();
 centerX = containerRect.left + containerRect.width / 2;
 centerY = containerRect.top + containerRect.height / 2;
-const maxRadius = (containerRect.width / 2) - (handle.clientWidth / 2);
-
+maxRadius = (containerRect.width / 2) - (handle.clientWidth / 2);
 let isDragging = false;
 
 handle.addEventListener('mousedown', startDrag);
@@ -28,7 +27,10 @@ function drag(event) {
     if (!isDragging) return;
     const inputX = event.clientX;
     const inputY = event.clientY;
-
+    
+    containerRect = container.getBoundingClientRect();
+    centerX = containerRect.left + containerRect.width / 2;
+    centerY = containerRect.top + containerRect.height / 2;
     let deltaX = inputX - centerX;
     let deltaY = inputY - centerY;
     let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -49,7 +51,7 @@ function drag(event) {
     handle.style.transform = `translate(${newX}px, ${newY}px)`;
 
     const normalizedX = (newX / maxRadius).toFixed(2);
-    const normalizedY = (-newY / maxRadius).toFixed(2)*-1;
+    const normalizedY = (newY / maxRadius).toFixed(2);
     player.dx = Math.round(normalizedX * 100) / 100;
     player.dy = Math.round(normalizedY * 100) / 100;
 

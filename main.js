@@ -32,6 +32,7 @@ let player = {
     mana:50,
     maxMana:50,
     attackCooldown: 0,
+    attacking:false,
     color: '#3b82f6',
     size: TILE_SIZE * 0.4,
     inventory:{},
@@ -91,6 +92,8 @@ const spawn = {};
 const MESSAGE_TIMEOUT_MS = 5000;
 const input = document.getElementById('chatInput'); 
 const shopUi = document.getElementById('shop-ui')
+const attackBtn = document.getElementById('attack-btn')
+const interactBtn = document.getElementById('interact-btn') 
 
 class spriteSheet {
     constructor(image, columns, rows) {
@@ -552,7 +555,7 @@ function generateDungeon() {
 
 async function handleCombat() {
     // Player attack
-    if (keys.mouse.left && player.attackCooldown <= 0) {
+    if ((keys.mouse.left||player.attacking) && player.attackCooldown <= 0) {
         player.attackCooldown = 30;
         
         // Check for nearby mobs
@@ -1179,6 +1182,10 @@ function init() {
     addEventListener('keyup', handleKeyUp);
     addEventListener('mousedown', handleMouseDown);
     addEventListener('mouseup', handleMouseUp);
+    attackBtn.addEventListener('touchstart',()=>{player.attacking = true})
+    attackBtn.addEventListener('touchend',()=>{player.attacking=false})
+    interactBtn.addEventListener('touchstart',()=>{keys['e']=true})
+    interactBtn.addEventListener('touchend',()=>{keys['e']=false})
 
     addMessage('Welcome to the Whispering Depths!', '#fbbf24');
     addMessage('Press Q to use potions', '#10b981');
@@ -1211,9 +1218,11 @@ window.onload = async ()=>{
         CANVAS_HEIGHT = newsizenow
         CANVAS_WIDTH = newsizenow
     }
-
+    
     containerRect = container.getBoundingClientRect();
     centerX = containerRect.left + containerRect.width / 2;
     centerY = containerRect.top + containerRect.height / 2;
+    maxRadius = (containerRect.width / 2) - (handle.clientWidth / 2);
+
 
 };
