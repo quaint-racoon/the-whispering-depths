@@ -61,6 +61,7 @@ function upgrade(u){
     updateStats(u);
     renderShop();
     addMessage("upgraded")
+    updateUI()
 }
 
 function updateStats(statKey){
@@ -73,7 +74,7 @@ function updateStats(statKey){
                 player.damage =Math.floor( 10 * (1.12 ** player.upgrades.damage));
                 break;
             case 'regeneration':
-                player.regenaration = 1 * (1.10 ** player.upgrades.regeneration);
+                player.regeneration = 1 * (1.25 ** player.upgrades.regeneration);
                 break;
             case 'speed':
                 player.speed = 0.15 * (1.2 ** player.upgrades.speed);

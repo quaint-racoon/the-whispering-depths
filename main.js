@@ -25,6 +25,7 @@ let player = {
     speed:0.15,
     health: 100, 
     maxHealth: 100,
+    regeneration:0,
     damage: 10,
     potions: 0,
     gold: 0,
@@ -54,6 +55,22 @@ let player = {
         'damage': { color: 'orange', icon: 'sword' }
     }
 };
+
+var lootTable = {
+    mobDrop:{
+        gold:85,
+        potion:15,
+    },
+    chest:{
+        air:25,
+        gold:60,
+        potion:15,
+    }
+    
+}
+
+
+
 let exitLadder;
 let camera = { x: 0, y: 0, targetX: 0, targetY: 0 };
 let keys = {
@@ -61,6 +78,7 @@ let keys = {
 };
 // Game entities
 let chests = [];
+let shops = [];
 let mobs = [];
 let lootItems = [];
 let particles = [];
@@ -123,6 +141,30 @@ loadImage('slash.png').then((slashImage)=>{
 })
 
 // --- UTILITY FUNCTIONS ---
+
+function getLoot(lootTable) {
+    if (!lootTable || Object.keys(lootTable).length === 0) {
+        return "No Loot";
+    }
+
+    const totalWeight = Object.values(lootTable).reduce((sum, weight) => sum + weight, 0);
+
+    const randomNumber = Math.random() * totalWeight;
+
+    let cumulativeWeight = 0;
+    for (const item in lootTable) {
+        if (lootTable.hasOwnProperty(item)) {
+            cumulativeWeight += lootTable[item];
+            if (randomNumber < cumulativeWeight) {
+                return item;
+            }
+        }
+    }
+
+    return "Error: Could not determine loot";
+}
+
+
 function calculateFps(){
     frames++
     ctx.fillStyle = 'white';
@@ -448,6 +490,7 @@ function generateDungeon() {
     
     // Place chests in some rooms
     chests = [];
+    shops = [];
     for (let i = 1; i < rooms.length; i++) {
         if (Math.random() < 0.4) { // 40% chance per room
             const room = rooms[i];
@@ -455,8 +498,14 @@ function generateDungeon() {
                 x: room.x + Math.floor(Math.random() * 3) - 1,
                 y: room.y + Math.floor(Math.random() * 3) - 1,
                 opened: false,
-                loot: Math.random() < 0.5 ? 'potion' : 'gold'
+                loot: getLoot(lootTable.chest)
             });
+        }else if(Math.random()<0.05) {
+            const room = rooms[i]
+            shops.push({
+                x:room.x + Math.floor(Math.random() * 3) - 1,
+                y:room.y + Math.floor(Math.random() * 3) - 1,
+            })
         }
     }
     
@@ -517,7 +566,7 @@ async function handleCombat() {
                         lootItems.push({
                             x: mob.x,
                             y: mob.y,
-                            type: Math.random() < 0.7 ? 'gold' : 'potion'
+                            type: getLoot(lootTable.mobDrop)
                         });
                     }
                     addMessage('Monster defeated!', '#10b981');
@@ -633,14 +682,25 @@ async function handleInteraction() {
             if (chest.loot === 'potion') {
                 player.potions++;
                 addMessage('🧪 Found a health potion!', '#10b981');
-            } else {
+            }
+            else if(chest.loot==='gold') {
                 const goldAmount = Math.floor(Math.random() * 20) + 10;
                 player.gold += goldAmount;
                 addMessage('🪙 Found ' + goldAmount + ' gold!', '#fbbf24');
             }
+            else if(chest.loo==='air') {
+                addMessage('The chest is empty :(')
+            }
             
             createParticle(chest.x, chest.y, '#fbbf24', '✨');
             updateUI();
+            break
+        }
+    }
+    for( let shop of shops){
+        if(dist(player.x,player.y,shop.x,shop.y)<2){
+            shopUi.classList.remove("hidden")
+            renderShop()
         }
     }
     
@@ -650,7 +710,8 @@ async function handleInteraction() {
             if (item.type === 'potion') {
                 player.potions++;
                 addMessage('🧪 Picked up a health potion!', '#10b981');
-            } else {
+            } 
+            else if(item.type==='gold') {
                 const goldAmount = Math.floor(Math.random() * 10) + 5;
                 player.gold += goldAmount;
                 addMessage('🪙 Picked up ' + goldAmount + ' gold!', '#fbbf24');
@@ -678,7 +739,7 @@ async function handleInteraction() {
 function usePotion() {
     if (player.potions > 0 && player.health < player.maxHealth) {
         player.potions--;
-        const healAmount = Math.min(50, player.maxHealth - player.health);
+        const healAmount = Math.min(25+(Math.random()*8)-4, player.maxHealth - player.health);
         player.health += healAmount;
         addMessage('💊 Healed ' + healAmount + ' HP!', '#10b981');
         createParticle(player.x, player.y, '#10b981', '+' + healAmount);
@@ -723,6 +784,12 @@ function update() {
     // Update visibility
     updateVisibility();
     
+    if(player.health<player.maxHealth&&Math.random()<0.001){
+        player.health+=player.regeneration
+        updateUI();
+    }
+
+
     // Update game systems
     updateMobs();
     handleCombat();
@@ -833,7 +900,21 @@ function draw() {
         ctx.font = '10px Arial';
         ctx.fillText('📦', chest.x * TILE_SIZE + offsetX , chest.y * TILE_SIZE + offsetY - floatY+TILE_SIZE/2);
     }
-    
+    // Draw shops
+    for (let shop of shops) {
+        if (!visibilityMap[Math.floor(shop.y)][Math.floor(shop.x)]) continue;
+
+        ctx.fillStyle = '#2563eb';
+        ctx.fillRect(
+            shop.x * TILE_SIZE + offsetX + 2,
+            shop.y * TILE_SIZE + offsetY + 2,
+            TILE_SIZE - 4,
+            TILE_SIZE - 4
+        );
+
+        ctx.drawImage(shopimg,(shop.x-1)*TILE_SIZE + offsetX,(shop.y-1)*TILE_SIZE + offsetY,TILE_SIZE*2,TILE_SIZE*2)
+    }
+
     // Draw loot
     for (let item of lootItems) {
         if (!visibilityMap[Math.floor(item.y)][Math.floor(item.x)]) continue;
@@ -1089,8 +1170,10 @@ function init() {
     
     gameLoop();
 }
+let shopimg;
 
-window.onload = ()=>{
+window.onload = async ()=>{
     init();
     renderShop();
+    shopimg = await loadImage('shop.png')
 };
