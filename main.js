@@ -1196,7 +1196,6 @@ function init() {
 
     addMessage('Welcome to the Whispering Depths!', '#fbbf24');
     addMessage('Press Q to use potions', '#10b981');
-    addMessage('this is the new version of the game 2','#fff')
 
     updateUI();
     
