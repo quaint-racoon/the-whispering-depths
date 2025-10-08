@@ -761,7 +761,7 @@ function usePotion() {
         const healAmount = Math.min(25+(Math.random()*8)-4, player.maxHealth - player.health);
         player.health += healAmount;
         addMessage('💊 Healed ' + Math.floor(healAmount) + ' HP!', '#10b981');
-        createParticle(player.x, player.y, '#10b981', '+' + healAmount);
+        createParticle(player.x, player.y, '#10b981', '+' + Math.floor(healAmount));
         updateUI();
     }
 }
