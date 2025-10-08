@@ -563,7 +563,7 @@ async function handleCombat() {
         if(!isMobileUserAgent()) player.attackAngle = Math.atan2(keys.mouse.y + camera.y-player.y*TILE_SIZE , keys.mouse.x + camera.x-player.x*TILE_SIZE);
         for (let mob of mobs) {
             if (mob.health <= 0) continue;
-            if(dist(player.x, player.y, mob.x, mob.y) > 3 ) continue 
+            if(dist(player.x, player.y, mob.x, mob.y) > 2.5 ) continue 
             const mobAngle = Math.atan2(mob.y-player.y, mob.x - player.x);
             const angleDiff = Math.abs(player.attackAngle - mobAngle);
             const normalizedAngleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
