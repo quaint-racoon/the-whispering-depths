@@ -13,7 +13,7 @@ document.addEventListener('mouseup', stopDrag);
 
 handle.addEventListener('touchstart', (e) => startDrag(e.touches[0]));
 handle.addEventListener('touchmove', (e) => drag(e.touches[0]));
-document.addEventListener('touchend', stopDrag);
+handle.addEventListener('touchend', stopDrag);
 
 function startDrag(event) {
     isDragging = true;
