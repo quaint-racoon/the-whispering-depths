@@ -760,7 +760,7 @@ function usePotion() {
         player.potions--;
         const healAmount = Math.min(25+(Math.random()*8)-4, player.maxHealth - player.health);
         player.health += healAmount;
-        addMessage('💊 Healed ' + healAmount + ' HP!', '#10b981');
+        addMessage('💊 Healed ' + Math.floor(healAmount) + ' HP!', '#10b981');
         createParticle(player.x, player.y, '#10b981', '+' + healAmount);
         updateUI();
     }
@@ -1080,6 +1080,12 @@ function handleMouseDown(e) {
             break;
     }
 }
+
+function handleMouseMove(e){
+    keys.mouse.x = e.offsetX
+    keys.mouse.y = e.offsetY
+}
+
 function handleMouseUp(e) {
     if(e.target !== canvas) return;
     keys.mouse.x = e.offsetX;
@@ -1181,6 +1187,7 @@ function init() {
     addEventListener('keydown', handleKeyDown);
     addEventListener('keyup', handleKeyUp);
     addEventListener('mousedown', handleMouseDown);
+    addEventListener('mousemove', handleMouseMove);
     addEventListener('mouseup', handleMouseUp);
     attackBtn.addEventListener('touchstart',()=>{player.attacking = true})
     attackBtn.addEventListener('touchend',()=>{player.attacking=false})
