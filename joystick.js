@@ -11,8 +11,9 @@ handle.addEventListener('mousedown', startDrag);
 document.addEventListener('mousemove', drag);
 document.addEventListener('mouseup', stopDrag);
 
-handle.addEventListener('touchstart', (e) => startDrag(e.touches[0]));
-handle.addEventListener('touchmove', (e) => drag(e.touches[0]));
+
+handle.addEventListener('touchstart', (e) => startDrag(Array.from(e.touches).filter(t=>t.target===document.getElementById("joystick-handle"))[0]));
+handle.addEventListener('touchmove', (e) => drag(Array.from(e.touches).filter(t=>t.target===document.getElementById("joystick-handle"))[0]));
 handle.addEventListener('touchend', stopDrag);
 
 function startDrag(event) {
