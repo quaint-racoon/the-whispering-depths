@@ -1223,6 +1223,11 @@ window.onload = async ()=>{
     centerX = containerRect.left + containerRect.width / 2;
     centerY = containerRect.top + containerRect.height / 2;
     maxRadius = (containerRect.width / 2) - (handle.clientWidth / 2);
-
+    document.body.style.minHeight = (window.innerHeight + 1) + 'px';
+    window.scrollTo(0, 1);
 
 };
+
+window.addEventListener('resize', () => {
+    window.scrollTo(0, 1);
+});
