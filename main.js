@@ -64,10 +64,10 @@ var lootTable = {
     },
     chest:{
         air:25,
-        gold:60,
+        gold:54,
         potion:15,
+        bomb:6
     }
-    
 }
 
 
@@ -707,8 +707,40 @@ async function handleInteraction() {
                 player.gold += goldAmount;
                 addMessage('🪙 Found ' + goldAmount + ' gold!', '#fbbf24');
             }
-            else if(chest.loo==='air') {
+            else if(chest.loot==='air') {
                 addMessage('The chest is empty :(')
+            }
+            else if(chest.loot==='bomb') {
+                let explosionAlpha = 1;
+                let explosionActive = true;
+                const explosionDamage = Math.floor(Math.random() * 25) + 10;
+                player.health -= explosionDamage;
+                addMessage(`💥 Explosion! -${explosionDamage} HP`, '#dc2626');
+                updateUI();
+                player.speed = 0.08
+                // Slow down all particles (simulate flying debris)
+                particles.forEach(p => {
+                    p.vx *= 0.3;
+                    p.vy *= 0.3;
+                });
+                
+                // Explosion effect: fade white overlay
+                (function fadeExplosion() {
+                    if (!explosionActive) return;
+                    ctx.save();
+                    ctx.globalAlpha = explosionAlpha;
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+                    ctx.restore();
+                    explosionAlpha -= 0.03;
+                    if (explosionAlpha > 0) {
+                        requestAnimationFrame(fadeExplosion);
+                    } else {
+                        explosionActive = false;
+                        player.speed=0.15
+                    }
+                })();
+                addMessage('The chest was trapped! they are after your soul','#5f0000ff')
             }
             
             createParticle(chest.x, chest.y, '#fbbf24', '✨');
