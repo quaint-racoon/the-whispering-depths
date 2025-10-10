@@ -95,38 +95,68 @@ const shopUi = document.getElementById('shop-ui')
 const attackBtn = document.getElementById('attack-btn')
 const interactBtn = document.getElementById('interact-btn') 
 
-class spriteSheet {
-    constructor(image, columns, rows) {
-        this.image = image; 
-        this.frameWidth = image.width/columns;
-        this.frameHeight = image.height/columns;
+class SpriteSheet {
+    constructor(image, columns, rows, animations) {
+        this.image = image;
         this.columns = columns;
         this.rows = rows;
+        this.frameWidth = image.width / columns;
+        this.frameHeight = image.height / rows;
+        this.animations = animations;
+    }
+
+    _draw(sourceX, sourceY, x, y, rotation, scale) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rotation);
+
+        const scaledWidth = this.frameWidth * scale;
+        const scaledHeight = this.frameHeight * scale;
+
+        ctx.drawImage(
+            this.image,
+            sourceX,
+            sourceY,
+            this.frameWidth,
+            this.frameHeight,
+            -scaledWidth / 2,
+            -scaledHeight / 2,
+            scaledWidth,
+            scaledHeight
+        );
+        ctx.restore();
     }
 
     drawFrame(frameIndex, x, y, rotation = 0, scale = 1) {
         const col = frameIndex % this.columns;
         const row = Math.floor(frameIndex / this.columns);
-        ctx.save();
-        ctx.translate(x , y );
-        ctx.rotate(rotation);  
-        ctx.drawImage(
-            this.image,
-            col * this.frameWidth,
-            row * this.frameHeight,
-            this.frameWidth,
-            this.frameHeight,
-            -this.frameWidth * scale / 2,
-            -this.frameHeight * scale / 2,
-            this.frameWidth * scale,  
-            this.frameHeight * scale  
-        );
-        ctx.restore();
+
+        const sourceX = col * this.frameWidth;
+        const sourceY = row * this.frameHeight;
+
+        this._draw(sourceX, sourceY, x, y, rotation, scale);
+    }
+
+    drawAnimation(animationName, frameIndexInAnimation, x, y, rotation = 0, scale = 1) {
+        const anim = this.animations[animationName];
+
+        if (!anim) {
+            return;
+        }
+
+        const frameIndexOffset = frameIndexInAnimation % anim.frames;
+
+        const absoluteFrameIndex = anim.startFrame + frameIndexOffset;
+
+        const col = absoluteFrameIndex % this.columns;
+        const row = Math.floor(absoluteFrameIndex / this.columns);
+
+        const sourceX = col * this.frameWidth;
+        const sourceY = row * this.frameHeight;
+
+        this._draw(sourceX, sourceY, x, y, rotation, scale);
     }
 }
-
-
-
 
 function loadImage(url) {
     return new Promise((resolve, reject) => {
@@ -137,11 +167,22 @@ function loadImage(url) {
     });
 }
 
-let slash;
-// Create the spriteSheet instance correctly:
-loadImage('slash.png').then((slashImage)=>{
-    slash = new spriteSheet(slashImage, 5, 5);
-})
+let slashSheet;
+
+loadImage('slash.png').then((slashImage) => {
+
+
+    const animations = {
+        "slash": {
+            startFrame: 3,
+            frames: 18
+        },
+    };
+
+    slashSheet = new SpriteSheet(slashImage, 5, 5, animations);
+}).catch(error => {
+    console.error(error);
+});
 
 // --- UTILITY FUNCTIONS ---
 
@@ -1043,11 +1084,17 @@ function draw() {
     );
     ctx.fill();
     // Draw attack indicator
-    if (player.attackCooldown > 0) {
+    if (player.attackCooldown > 12) {
         let x = Math.cos(player.attackAngle)*TILE_SIZE*1.5
         let y = Math.sin(player.attackAngle)*TILE_SIZE*1.5
-        slash.drawFrame(29-player.attackCooldown,player.x*TILE_SIZE-camera.x + x,player.y*TILE_SIZE-camera.y+y,player.attackAngle+Math.PI/2,0.5)
-    }
+        slashSheet.drawAnimation(
+            'slash',
+            30-player.attackCooldown, 
+            player.x * TILE_SIZE - camera.x + x,
+            player.y * TILE_SIZE - camera.y + y,
+            player.attackAngle + Math.PI / 2,
+            0.5
+        );   }
     
     // Draw particles
     for (let p of particles) {
