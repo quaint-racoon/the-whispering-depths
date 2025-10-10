@@ -161,6 +161,11 @@
             transition: transform 0.1s ease; /* For smooth return to center */
             cursor: grab;
         }
+        .toggle-full-screen-icon{
+            top:0px;
+            right:0px;
+            position: fixed;
+        }
 
     </style>
     <script src="shop.js" defer></script>
@@ -171,7 +176,7 @@
 
 <body>
 
-    <div class="mb-4 text-center" id="gametitle">
+    <div class="mb-4 text-center" id="game-title">
         <h1 class="text-3xl font-bold text-gray-100">The Whispering Depths</h1>
         <p class="text-sm text-gray-400 mt-1">WASD/Arrows to move • E to interact • click to attack</p>
         <p class="text-xs text-gray-500">Explore the dungeon, fight monsters, and collect loot!</p>
@@ -179,9 +184,10 @@
     <div id="joystick-container" class="hidden">
         <div id="joystick-handle"></div>
     </div>
-    
-    <div id="gameContainer">
-        <canvas id="gameCanvas"></canvas>
+    <i data-lucide="maximize" class="toggle-full-screen-icon" onclick="toggleFullScreen();"></i>
+    <i data-lucide="minimize" class="toggle-full-screen-icon" onclick="toggleFullScreen();" style="display:none"></i>
+        <div id="gameContainer">
+        <canvas id="gameCanvas" style="height:100%"></canvas>
         <input id="chatInput" style="display:none;" autocomplete="off" autocapitalize="off" spellcheck="false"
             placeholder="Type a message..."
             class="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-3/4 p-2 bg-gray-800 text-white border border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400" />

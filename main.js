@@ -88,12 +88,16 @@ let gameTime = 0;
 let messages = [];
 let frames=0;
 let fps;
+let fullScreen = false
 const spawn = {};
 const MESSAGE_TIMEOUT_MS = 5000;
 const input = document.getElementById('chatInput'); 
 const shopUi = document.getElementById('shop-ui')
 const attackBtn = document.getElementById('attack-btn')
 const interactBtn = document.getElementById('interact-btn') 
+const gameTitle = document.getElementById('game-title')
+const gameContainer = document.getElementById('gameContainer')
+let maximizeIcon,minimizeIcon;
 
 class SpriteSheet {
     constructor(image, columns, rows, animations) {
@@ -185,6 +189,21 @@ loadImage('slash.png').then((slashImage) => {
 });
 
 // --- UTILITY FUNCTIONS ---
+
+function toggleFullScreen(){
+    fullScreen = !fullScreen
+    if(fullScreen===true){
+        gameContainer.style.height = '100vh'
+        gameTitle.style.display = 'none'
+        minimizeIcon.style.display= 'block'
+        maximizeIcon.style.display= 'none'
+    }else{
+        gameContainer.style.height = '100%'
+        gameTitle.style.display = 'block'
+        minimizeIcon.style.display= 'none'
+        maximizeIcon.style.display= 'block'
+    }
+}
 
 function getLoot(lootTable) {
     if (!lootTable || Object.keys(lootTable).length === 0) {
@@ -442,6 +461,9 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'o' || e.key === 'O') {
         e.preventDefault();
         startRecording();
+    }
+    if(e.key === 'esc'){
+        shopUi.classList.add('hidden')
     }
 });
 // --- DUNGEON GENERATION ---
@@ -1286,9 +1308,11 @@ window.onload = async ()=>{
     init();
     renderShop();
     shopimg = await loadImage('shop.png')
-
+    lucide.createIcons(); 
+    maximizeIcon = document.querySelector('[data-lucide="maximize"]');
+    minimizeIcon = document.querySelector('[data-lucide="minimize"]');
     if(isMobileUserAgent()){
-        document.getElementById("gametitle").classList.add("hidden")
+        gameTitle.classList.add("hidden")
         document.getElementById("joystick-container").style.display="flex"
         document.body.classList.add("flex-row","justify-around")
         document.getElementById("interact-buttons").classList.remove("hidden")
