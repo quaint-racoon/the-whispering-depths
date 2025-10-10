@@ -778,7 +778,7 @@ async function handleInteraction() {
                         requestAnimationFrame(fadeExplosion);
                     } else {
                         explosionActive = false;
-                        player.speed=0.15
+                        updateStats('speed')
                     }
                 })();
                 addMessage('The chest was trapped! they are after your soul','#5f0000ff')
