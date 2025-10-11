@@ -97,7 +97,7 @@ const attackBtn = document.getElementById('attack-btn')
 const interactBtn = document.getElementById('interact-btn') 
 const gameTitle = document.getElementById('game-title')
 const gameContainer = document.getElementById('gameContainer')
-let maximizeIcon,minimizeIcon;
+let maximizeIcon,minimizeIcon,scale=1;
 
 class SpriteSheet {
     constructor(image, columns, rows, animations) {
@@ -203,6 +203,7 @@ function toggleFullScreen(){
         minimizeIcon.style.display= 'none'
         maximizeIcon.style.display= 'block'
     }
+    scale = canvas.width/canvas.clientWidth;
 }
 
 function getLoot(lootTable) {
@@ -861,33 +862,55 @@ function usePotion() {
     }
 }
 
-function update() {
+function castMovementRay(nextX, nextY, playerRadius) {
+    const raySteps = Math.ceil(dist(player.x, player.y, nextX, nextY) / 0.15);
+    let collisionDetected = false;
+    let didntMove=false;
+    const dx = nextX - player.x
+    const dy = nextY - player.y
+    for (let i = 1; i <= raySteps; i++) {
+        const t = i / raySteps;
+        const rx = player.x + dx * t;
+        const ry = player.y + dy * t;
+        const cornersY = [
+            { x: rx - playerRadius, y: ry - playerRadius },
+            { x: rx + playerRadius, y: ry - playerRadius },
+            { x: rx - playerRadius, y: ry + playerRadius },
+            { x: rx + playerRadius, y: ry + playerRadius }
+        ];
+        for (const corner of cornersY) {
+            const tileX = Math.floor(corner.x);
+            const tileY = Math.floor(corner.y);
+            if (isWall(tileX, tileY)) {
+                nextY = ry - dy
+                nextX = rx - dx
+                collisionDetected = true;
+                if(i===1)didntMove=true
+                break;
+            }
+        }
+        if (collisionDetected) break;
+    };
+    return {nextX,nextY,didntMove}
+}
+
+async function update() {
     gameTime++;
     // Player movement with center-based bounding box collision
-    const nextX = player.x + player.dx * player.speed;
-    const nextY = player.y + player.dy * player.speed;
+    let nextX = player.x + player.dx * player.speed;
+    let nextY = player.y + player.dy * player.speed;
     const playerRadius = player.size / TILE_SIZE;
-    let canMove = true;
-    // Check four corners of the player's bounding box
-    const corners = [
-        { x: nextX - playerRadius, y: nextY - playerRadius },
-        { x: nextX + playerRadius, y: nextY - playerRadius },
-        { x: nextX - playerRadius, y: nextY + playerRadius },
-        { x: nextX + playerRadius, y: nextY + playerRadius }
-    ];
-    for (const corner of corners) {
-        const tileX = Math.floor(corner.x);
-        const tileY = Math.floor(corner.y);
-        if (isWall(tileX, tileY)) {
-            canMove = false;
-            break;
+
+    // Ray cast from player.x, player.y to nextX, nextY
+    let ray = await castMovementRay(nextX,nextY,playerRadius)
+    if(ray.didntMove){
+        ray = await castMovementRay(nextX,player.y,playerRadius)
+        if(ray.didntMove){
+            ray = await castMovementRay(player.x,nextY,playerRadius)
         }
     }
-
-    if (canMove) {
-        player.x = nextX;
-        player.y = nextY;
-    }
+    player.x = ray.nextX;
+    player.y = ray.nextY;
 
     // Camera lag
     camera.targetX = player.x * TILE_SIZE - CANVAS_WIDTH / 2;
@@ -923,24 +946,25 @@ function draw() {
     ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     const offsetX = -camera.x;
     const offsetY = -camera.y;
-
     // Draw map tiles
     const startCol = Math.floor(camera.x / TILE_SIZE);
     const endCol = Math.floor((camera.x + CANVAS_WIDTH) / TILE_SIZE) + 1;
     const startRow = Math.floor(camera.y / TILE_SIZE);
     const endRow = Math.floor((camera.y + CANVAS_HEIGHT) / TILE_SIZE) + 1;
     for (let y = startRow; y <= endRow; y++) {
-        if (y < 0 || y >= MAP_HEIGHT) continue;
+        
+        if (y < 0 || y >= MAP_HEIGHT) continue ;
+        
         for (let x = startCol; x <= endCol; x++) {
+            
             if (x < 0 || x >= MAP_WIDTH) continue;
-
             const tile = map[y][x];
-
             // Always draw if explored or visible
             if (!exploredMap[y][x] && !visibilityMap[y][x]) continue;
 
             let color;
             if (visibilityMap[y][x]) {
+                
             // Currently visible
             switch (tile) {
                 case TILE_WALL:
@@ -1170,8 +1194,8 @@ function handleKeyUp(e) {
 }
 function handleMouseDown(e) {
     if(e.target !== canvas) return;
-    keys.mouse.x = e.offsetX;
-    keys.mouse.y = e.offsetY;
+    keys.mouse.x = e.offsetX * scale;
+    keys.mouse.y = e.offsetY * scale;
     switch (e.button) {
         case 0: // Left click
             keys.mouse.left = true;
@@ -1183,14 +1207,14 @@ function handleMouseDown(e) {
 }
 
 function handleMouseMove(e){
-    keys.mouse.x = e.offsetX
-    keys.mouse.y = e.offsetY
+    keys.mouse.x = e.offsetX * scale
+    keys.mouse.y = e.offsetY * scale
 }
 
 function handleMouseUp(e) {
     if(e.target !== canvas) return;
-    keys.mouse.x = e.offsetX;
-    keys.mouse.y = e.offsetY;
+    keys.mouse.x = e.offsetX * scale;
+    keys.mouse.y = e.offsetY * scale;
     switch (e.button) {
         case 0: // Left click
             keys.mouse.left = false;
@@ -1274,7 +1298,8 @@ input.addEventListener('keydown', function(event) {
 function init() {
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d');
-    
+    ctx.imageSmoothingEnabled = false;
+
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
 
@@ -1290,6 +1315,7 @@ function init() {
     addEventListener('mousedown', handleMouseDown);
     addEventListener('mousemove', handleMouseMove);
     addEventListener('mouseup', handleMouseUp);
+    addEventListener('resize',()=>{scale = canvas.width/canvas.clientWidth})
     attackBtn.addEventListener('touchstart',()=>{player.attacking = true})
     attackBtn.addEventListener('touchend',()=>{player.attacking=false})
     interactBtn.addEventListener('touchstart',()=>{keys['e']=true})
