@@ -58,6 +58,7 @@ function upgrade(u){
     if(player.gold<player.upgrades.price)return addMessage("not enough points to buy this upgrade!", "#cc0000ff")
     player.gold-=player.upgrades.price
     player.upgrades[u]++
+    player.upgrades.price=Math.floor(player.upgrades.price*1.5)
     updateStats(u);
     renderShop();
     addMessage("upgraded")

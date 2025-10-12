@@ -171,6 +171,16 @@ function loadImage(url) {
     });
 }
 
+function flashImage(x,y,w,h){
+    ctx.globalCompositeOperation = 'lighter';
+
+    ctx.fillStyle = 'white';
+
+    ctx.fillRect(x, y, w, h);
+
+    ctx.globalCompositeOperation = 'source-over';
+}
+
 let slashSheet;
 
 loadImage('slash.png').then((slashImage) => {
@@ -608,6 +618,8 @@ function generateDungeon() {
                     speed: 0.02,
                     attackCooldown: 0,
                     stunned: 0,
+                    charging:false,
+                    chargingTime:0,
                 });
             }
         }
@@ -701,6 +713,75 @@ async function handleCombat() {
     }
 }
 
+function moveMob(mx,my,px,py,mob) {
+
+
+    const angle = Math.atan2(py - my, px - mx);
+    const dx = Math.cos(angle) * mob.speed;
+    const dy = Math.sin(angle) * mob.speed;
+
+    const nextX = mob.x + dx;
+    const nextY = mob.y + dy;
+
+    // Check collision
+    if (map[Math.floor(nextY)][Math.floor(nextX)] === TILE_FLOOR) {
+        for (let other of mobs) {
+            if (other !== mob && other.health > 0) {
+                if (dist(nextX, nextY, other.x, other.y) < 0.8) {
+                    const dx = mob.x - other.x;
+                    const dy = mob.y - other.y;
+                    const distBetween = Math.sqrt(dx * dx + dy * dy) || 0.01;
+                    const repelStrength = 0.2;
+                    mob.x += (dx / distBetween) * repelStrength;
+                    mob.y += (dy / distBetween) * repelStrength;
+                    other.x -= (dx / distBetween) * repelStrength;
+                    other.y -= (dy / distBetween) * repelStrength;
+                    break;
+                }
+            }
+        }
+        mob.x = nextX;
+        mob.y = nextY;
+    }
+}
+
+function pathClearToPlayer(mx, my, px, py) {
+    let dx = px - mx;
+    let dy = py - my;
+    
+    let steps = Math.max(Math.abs(dx), Math.abs(dy));
+    
+    if (steps === 0) {
+        return true;
+    }
+    
+    let x_increment = dx / steps;
+    let y_increment = dy / steps;
+    
+    let x = mx;
+    let y = my;
+    
+    for (let i = 0; i < steps; i++) {
+        x += x_increment;
+        y += y_increment;
+        
+        let check_x = Math.round(x);
+        let check_y = Math.round(y);
+
+        const mapHeight = map.length;
+        const mapWidth = map[0] ? map[0].length : 0;
+        
+        if (check_y < 0 || check_y >= mapHeight || check_x < 0 || check_x >= mapWidth) {
+            return false;
+        }
+
+        if (map[check_y][check_x] !== 0) { 
+            return false;
+        }
+    }
+    return true;
+}
+
 function updateMobs() {
     const px = Math.floor(player.x);
     const py = Math.floor(player.y);
@@ -711,39 +792,33 @@ function updateMobs() {
         const mx = Math.floor(mob.x);
         const my = Math.floor(mob.y);
         
-        // Only move if player is visible and nearby
-        if (visibilityMap[my] && visibilityMap[my][mx] && dist(mx, my, px, py) < 15) {
-            if (mob.stunned > 0) {
-                mob.stunned--;
-                continue;
-            }
-            
-            // Simple pathfinding towards player - fix the typo here
-            const angle = Math.atan2(py - my, px - mx);
-            const dx = Math.cos(angle) * mob.speed;
-            const dy = Math.sin(angle) * mob.speed;
-            
-            const nextX = mob.x + dx;
-            const nextY = mob.y + dy;
-            
-            // Check collision
-            if (map[Math.floor(nextY)][Math.floor(nextX)] === TILE_FLOOR) {
-                // Check collision with other mobs
-                let canMove = true;
-                for (let other of mobs) {
-                    if (other !== mob && other.health > 0) {
-                        if (dist(nextX, nextY, other.x, other.y) < 0.8) {
-                            canMove = false;
-                            break;
-                        }
-                    }
+        if (!(visibilityMap[my] && visibilityMap[my][mx]) ) continue;
+        if (mob.stunned > 0) {
+            mob.stunned--;
+            continue;
+        }
+        if(dist(mx, my, px, py) < 7){
+            moveMob(mx,my,px,py,mob)
+        }else{
+            if(mob.charging){
+                if(!pathClearToPlayer(mx,my,px,py)){
+                    mob.charging= false;
+                    continue;
                 }
-                
-                if (canMove) {
-                    mob.x = nextX;
-                    mob.y = nextY;
+                if(mob.chargingTime >= 20){
+                    mob.speed *= 100;
+                    moveMob(mx,my,px,py,mob)
+                    mob.chargingTime=0
+                    setTimeout(() => {
+                        mob.speed /= 100;
+                    }, 48); 
+                }else {
+                    mob.chargingTime++
                 }
-            }
+
+            }else if(pathClearToPlayer()){
+                mob.charging = true
+            }else moveMob(mx,my,px,py)
         }
     }
     
@@ -882,8 +957,8 @@ function castMovementRay(nextX, nextY, playerRadius) {
             const tileX = Math.floor(corner.x);
             const tileY = Math.floor(corner.y);
             if (isWall(tileX, tileY)) {
-                nextY = ry - dy
-                nextX = rx - dx
+                nextY = ry - dy/raySteps
+                nextX = rx - dx/raySteps
                 collisionDetected = true;
                 if(i===1)didntMove=true
                 break;
@@ -1096,12 +1171,12 @@ function draw() {
         ctx.font = '16px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+        if(mob.charging&&frames%2===0) ctx.fillStyle = 'white'
         ctx.fillText(
             '🧌',
             mob.x * TILE_SIZE + offsetX ,
             mob.y * TILE_SIZE + offsetY 
         );
-
         // Health bar
         if (mob.health < mob.maxHealth) {
             ctx.fillStyle = '#000';
