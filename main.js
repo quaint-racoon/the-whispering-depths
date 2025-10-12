@@ -1344,9 +1344,7 @@ input.addEventListener('keydown', function(event) {
                         player.x = exitLadder.x ;
                         player.y = exitLadder.y ;
                         addMessage(`Teleported to exit ladder at ${exitLadder.x},${exitLadder.y}!`, '#34d399');
-                        return;
                     }
-
                     if(isNaN(x) || isNaN(y) || x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT || map[y][x] !== TILE_FLOOR) {
                         addMessage('Invalid coordinates.', '#f87171');
                     } else {
@@ -1360,8 +1358,9 @@ input.addEventListener('keydown', function(event) {
             } else {
                 addMessage('You: ' + message, '#3b82f6');
             }
-            input.value = '';
+            
         }
+        input.value = '';
         input.style.display = 'none';
         canvas.focus();
     }

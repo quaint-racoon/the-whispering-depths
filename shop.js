@@ -104,5 +104,4 @@ function renderShop() {
     if (typeof lucide !== 'undefined' && lucide.createIcons) {
         lucide.createIcons();
     }
-    console.log("rendered shop")
 }
